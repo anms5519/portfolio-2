@@ -1,0 +1,102 @@
+body {
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    font-family: Arial, sans-serif;
+    overflow: hidden;
+}
+
+.game-container {
+    position: relative;
+    width: 800px;
+    max-width: 100%;
+    margin: 0 auto;
+}
+
+canvas {
+    display: block;
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+.game-ui {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    color: white;
+    font-size: 18px;
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+    z-index: 10;
+}
+
+.game-score, .game-lives {
+    margin: 8px 0;
+}
+
+.controls {
+    text-align: center;
+    margin-top: 15px;
+    color: white;
+}
+
+.game-over, .level-complete, .game-start {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.8);
+    padding: 20px 40px;
+    border-radius: 10px;
+    color: white;
+    text-align: center;
+    z-index: 100;
+    display: none;
+}
+
+.game-over h2, .level-complete h2, .game-start h2 {
+    margin-top: 0;
+    font-size: 28px;
+    color: #ff5e5e;
+}
+
+.level-complete h2 {
+    color: #5eff5e;
+}
+
+.btn {
+    background: linear-gradient(135deg, #6200ea, #00c9ff);
+    border: none;
+    color: white;
+    padding: 10px 20px;
+    margin-top: 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.3s ease;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+}
+
+@media (max-width: 768px) {
+    .game-container {
+        width: 100%;
+        padding: 0 10px;
+    }
+    
+    canvas {
+        width: 100%;
+        height: auto;
+    }
+    
+    .controls {
+        font-size: 14px;
+    }
+} 

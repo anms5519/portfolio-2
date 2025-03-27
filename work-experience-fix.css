@@ -1,0 +1,132 @@
+.timeline-item:nth-child(odd) {
+  float: left;
+  text-align: right;      /* optional, to align text on the right */
+  clear: both;
+}
+.timeline-item:nth-child(odd)::before {
+  right: -37px;           /* positions dot to the left side of the timeline line */
+}
+
+/* Even items on the right */
+.timeline-item:nth-child(even) {
+  float: right;
+  text-align: left;
+  clear: both;
+}
+.timeline-item:nth-child(even)::before {
+  left: -37px;            /* positions dot to the right side of the timeline line */
+}
+:root {
+  --primary-color: #a29bfe;
+  --secondary-color: #81ecec;
+  --accent-color: #6c5ce7;
+  --bg-dark: #1c1c30;
+  --text-light: #fff;
+  --text-dark: #333;
+}
+
+/* Timeline Progress Indicator */
+.timeline-progress-indicator {
+  position: relative;
+  margin: 3rem auto;
+  width: 100%;
+  height: 50px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.progress-ball {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--primary-color);
+  box-shadow: 0 0 20px var(--primary-color), 0 0 10px var(--secondary-color);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Experience Summary Section */
+.experience-summary {
+  margin: 4rem auto;
+  padding: 2rem;
+  max-width: 600px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  border-radius: 12px;
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  animation: fadeIn 1s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Summary Card Layout */
+.summary-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Icon Styling */
+.summary-icon {
+  font-size: 3rem;
+  color: var(--accent-color);
+}
+
+/* Summary Content */
+.summary-content h3 {
+  font-size: 2rem;
+  color: var(--text-light);
+  margin-bottom: 1rem;
+}
+
+/* Experience Stats Grid */
+.experience-stats {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+}
+
+/* Individual Stat */
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stat-number {
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: var(--primary-color);
+}
+
+.stat-label {
+  font-size: 1rem;
+  color: var(--secondary-color);
+}

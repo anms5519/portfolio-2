@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cosmic Defender</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Arial', sans-serif;
+            color: white;
+            height: 100vh;
+        }
+        
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        canvas {
+            display: block;
+            border: 2px solid #333;
+            box-shadow: 0 0 20px #4568dc;
+        }
+        
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 10;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            border: 1px solid #4568dc;
+        }
+        
+        #game-over, #start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 100;
+        }
+        
+        #game-over {
+            display: none;
+        }
+        
+        h1 {
+            font-size: 3em;
+            color: #4568dc;
+            text-shadow: 0 0 10px #4568dc;
+            margin-bottom: 20px;
+        }
+        
+        button {
+            background: linear-gradient(45deg, #4568dc, #b06ab3);
+            border: none;
+            color: white;
+            padding: 15px 30px;
+            font-size: 1.2em;
+            border-radius: 5px;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(69, 104, 220, 0.8);
+            transition: all 0.3s ease;
+        }
+        
+        button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 20px rgba(69, 104, 220, 1);
+        }
+        
+        .score {
+            font-size: 1.5em;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="ui">
+            <div>Score: <span id="score">0</span></div>
+            <div>Lives: <span id="lives">3</span></div>
+            <div>Level: <span id="level">1</span></div>
+        </div>
+        
+        <canvas id="game-canvas"></canvas>
+        
+        <div id="start-screen">
+            <h1>COSMIC DEFENDER</h1>
+            <p>Use arrow keys to move and spacebar to shoot.</p>
+            <p>Destroy enemies and collect power-ups to advance levels.</p>
+            <button id="start-button">START GAME</button>
+        </div>
+        
+        <div id="game-over">
+            <h1>GAME OVER</h1>
+            <div class="score">Final Score: <span id="final-score">0</span></div>
+            <button id="restart-button">PLAY AGAIN</button>
+        </div>
+    </div>
+
+    <script>
+        // Game variables
+        let canvas, ctx, gameLoop;
+        let score = 0;
+        let lives = 3;
+        let level = 1;
+        
+        // Game state
+        let gameRunning = false;
+        
+        // Player
+        const player = {
+            x: 0,
+            y: 0,
+            width: 50,
+            height: 50,
+            speed: 5,
+            color: '#4568dc',
+            bullets: [],
+            lastShot: 0,
+            shotDelay: 250, // milliseconds
+            powerLevel: 1
+        };
+        
+        // Enemies
+        let enemies = [];
+        const enemyTypes = [
+            { color: '#ff4b2b', width: 40, height: 40, speed: 2, points: 10, health: 1 },
+            { color: '#ff9f43', width: 50, height: 50, speed: 1.5, points: 20, health: 2 },
+            { color: '#ee5253', width: 60, height: 60, speed: 1, points: 30, health: 3 }
+        ];
+        
+        // Power-ups
+        let powerUps = [];
+        const powerUpTypes = [
+            { type: 'speed', color: '#2ed573', effect: () => { player.speed += 1; } },
+            { type: 'power', color: '#ffa502', effect: () => { player.powerLevel = Math.min(player.powerLevel + 1, 3); } },
+            { type: 'life', color: '#ff6b81', effect: () => { lives++; document.getElementById('lives').textContent = lives; } }
+        ];
+        
+        // Stars for background
+        let stars = [];
+        
+        // Keyboard state
+        const keys = {};
+        
+        // Event listeners
+        document.getElementById('start-button').addEventListener('click', startGame);
+        document.getElementById('restart-button').addEventListener('click', startGame);
+        
+        window.addEventListener('keydown', e => {
+            keys[e.key] = true;
+            
+            // Prevent scrolling with arrow keys
+            if(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
+                e.preventDefault();
+            }
+        });
+        
+        window.addEventListener('keyup', e => {
+            keys[e.key] = false;
+        });
+        
+        // Initialize the game
+        function init() {
+            // Get canvas and context
+            canvas = document.getElementById('game-canvas');
+            ctx = canvas.getContext('2d');
+            
+            // Set canvas size
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            
+            // Initialize stars
+            createStars();
+        }
+        
+        function resizeCanvas() {
+            canvas.width = window.innerWidth * 0.8;
+            canvas.height = window.innerHeight * 0.8;
+            
+            // Update player position on resize
+            player.x = canvas.width / 2 - player.width / 2;
+            player.y = canvas.height - player.height - 20;
+        }
+        
+        function createStars() {
+            stars = [];
+            for (let i = 0; i < 100; i++) {
+                stars.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    size: Math.random() * 2 + 1,
+                    speed: Math.random() * 2 + 0.5
+                });
+            }
+        }
+        
+        function startGame() {
+            // Reset game state
+            score = 0;
+            lives = 3;
+            level = 1;
+            player.powerLevel = 1;
+            player.speed = 5;
+            player.bullets = [];
+            enemies = [];
+            powerUps = [];
+            
+            // Update UI
+            document.getElementById('score').textContent = score;
+            document.getElementById('lives').textContent = lives;
+            document.getElementById('level').textContent = level;
+            
+            // Hide screens
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('game-over').style.display = 'none';
+            
+            // Start the game
+            gameRunning = true;
+            
+            // Generate initial enemies
+            generateEnemies();
+            
+            // Start the game loop
+            if (gameLoop) cancelAnimationFrame(gameLoop);
+            gameLoop = requestAnimationFrame(update);
+        }
+        
+        function generateEnemies() {
+            const enemyCount = 5 + level * 2;
+            const rows = Math.min(3, Math.ceil(level / 2));
+            
+            for (let row = 0; row < rows; row++) {
+                const enemyType = enemyTypes[Math.min(row, enemyTypes.length - 1)];
+                const enemiesPerRow = Math.ceil(enemyCount / rows);
+                
+                for (let i = 0; i < enemiesPerRow; i++) {
+                    enemies.push({
+                        x: (canvas.width / enemiesPerRow) * i + (canvas.width / enemiesPerRow - enemyType.width) / 2,
+                        y: row * 70 + 50,
+                        width: enemyType.width,
+                        height: enemyType.height,
+                        speed: enemyType.speed * (1 + level * 0.1),
+                        color: enemyType.color,
+                        points: enemyType.points,
+                        health: enemyType.health,
+                        direction: 1, // 1 for right, -1 for left
+                        shootChance: 0.001 * level
+                    });
+                }
+            }
+        }
+        
+        function update() {
+            if (!gameRunning) return;
+            
+            // Clear canvas
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Update and draw stars
+            updateStars();
+            
+            // Handle player input
+            if (keys['ArrowLeft'] && player.x > 0) {
+                player.x -= player.speed;
+            }
+            if (keys['ArrowRight'] && player.x < canvas.width - player.width) {
+                player.x += player.speed;
+            }
+            if (keys[' '] && Date.now() - player.lastShot > player.shotDelay) {
+                fireBullet();
+                player.lastShot = Date.now();
+            }
+            
+            // Update and draw player
+            drawPlayer();
+            
+            // Update and draw bullets
+            updateBullets();
+            
+            // Update and draw enemies
+            updateEnemies();
+            
+            // Update and draw power-ups
+            updatePowerUps();
+            
+            // Check for level completion
+            if (enemies.length === 0) {
+                level++;
+                document.getElementById('level').textContent = level;
+                generateEnemies();
+            }
+            
+            // Continue the game loop
+            gameLoop = requestAnimationFrame(update);
+        }
+        
+        function updateStars() {
+            ctx.fillStyle = '#fff';
+            stars.forEach(star => {
+                // Draw star
+                ctx.globalAlpha = Math.random() * 0.5 + 0.5;
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Move star
+                star.y += star.speed;
+                
+                // Reset star if it moves off screen
+                if (star.y > canvas.height) {
+                    star.y = 0;
+                    star.x = Math.random() * canvas.width;
+                }
+            });
+            ctx.globalAlpha = 1;
+        }
+        
+        function drawPlayer() {
+            // Draw ship body
+            ctx.fillStyle = player.color;
+            ctx.beginPath();
+            ctx.moveTo(player.x + player.width / 2, player.y);
+            ctx.lineTo(player.x + player.width, player.y + player.height);
+            ctx.lineTo(player.x, player.y + player.height);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Draw engine glow
+            ctx.fillStyle = '#ff4b2b';
+            ctx.beginPath();
+            ctx.moveTo(player.x + player.width / 3, player.y + player.height);
+            ctx.lineTo(player.x + player.width / 2, player.y + player.height + 15);
+            ctx.lineTo(player.x + player.width * 2/3, player.y + player.height);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Draw shield if power level > 1
+            if (player.powerLevel > 1) {
+                ctx.strokeStyle = '#4568dc';
+                ctx.lineWidth = 3;
+                ctx.globalAlpha = 0.5;
+                ctx.beginPath();
+                ctx.arc(player.x + player.width / 2, player.y + player.height / 2, player.width / 2 + 10, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.globalAlpha = 1;
+            }
+        }
+        
+        function fireBullet() {
+            // Basic shot
+            player.bullets.push({
+                x: player.x + player.width / 2 - 2,
+                y: player.y,
+                width: 4,
+                height: 10,
+                speed: 10,
+                color: '#4568dc'
+            });
+            
+            // Add side shots based on power level
+            if (player.powerLevel >= 2) {
+                player.bullets.push({
+                    x: player.x + 10,
+                    y: player.y + 20,
+                    width: 4,
+                    height: 10,
+                    speed: 10,
+                    color: '#4568dc'
+                });
+                
+                player.bullets.push({
+                    x: player.x + player.width - 14,
+                    y: player.y + 20,
+                    width: 4,
+                    height: 10,
+                    speed: 10,
+                    color: '#4568dc'
+                });
+            }
+            
+            // Add diagonal shots at highest power level
+            if (player.powerLevel >= 3) {
+                player.bullets.push({
+                    x: player.x,
+                    y: player.y + 10,
+                    width: 4,
+                    height: 10,
+                    speed: 9,
+                    speedX: -1.5,
+                    color: '#4568dc'
+                });
+                
+                player.bullets.push({
+                    x: player.x + player.width - 4,
+                    y: player.y + 10,
+                    width: 4,
+                    height: 10,
+                    speed: 9,
+                    speedX: 1.5,
+                    color: '#4568dc'
+                });
+            }
+        }
+        
+        function updateBullets() {
+            const remainingBullets = [];
+            
+            for (let i = 0; i < player.bullets.length; i++) {
+                const bullet = player.bullets[i];
+                
+                // Move bullet
+                bullet.y -= bullet.speed;
+                if (bullet.speedX) {
+                    bullet.x += bullet.speedX;
+                }
+                
+                // Remove bullet if it goes off screen
+                if (bullet.y < -bullet.height) {
+                    continue;
+                }
+                
+                // Draw bullet
+                ctx.fillStyle = bullet.color;
+                ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+                
+                // Check for collision with enemies
+                for (let j = 0; j < enemies.length; j++) {
+                    const enemy = enemies[j];
+                    
+                    if (
+                        bullet.x < enemy.x + enemy.width &&
+                        bullet.x + bullet.width > enemy.x &&
+                        bullet.y < enemy.y + enemy.height &&
+                        bullet.y + bullet.height > enemy.y
+                    ) {
+                        // Bullet hit enemy
+                        enemy.health--;
+                        
+                        if (enemy.health <= 0) {
+                            // Enemy destroyed
+                            enemies.splice(j, j);
+                            
+                            // Add score
+                            score += enemy.points;
+                            document.getElementById('score').textContent = score;
+                            
+                            // Chance to spawn power-up
+                            if (Math.random() < 0.2) {
+                                const powerUpType = powerUpTypes[Math.floor(Math.random() * powerUpTypes.length)];
+                                powerUps.push({
+                                    x: enemy.x + enemy.width / 2 - 15,
+                                    y: enemy.y,
+                                    width: 30,
+                                    height: 30,
+                                    speed: 2,
+                                    color: powerUpType.color,
+                                    effect: powerUpType.effect
+                                });
+                            }
+                        }
+                        
+                        // Remove bullet
+                        continue;
+                    }
+                }
+                
+                // Keep bullet for next frame
+                remainingBullets.push(bullet);
+            }
+            
+            player.bullets = remainingBullets;
+        }
+        
+        function updateEnemies() {
+            let needToChangeDirection = false;
+            
+            // Check if any enemy needs to change direction
+            for (let i = 0; i < enemies.length; i++) {
+                const enemy = enemies[i];
+                
+                if (
+                    (enemy.direction === 1 && enemy.x + enemy.width + enemy.speed > canvas.width) ||
+                    (enemy.direction === -1 && enemy.x - enemy.speed < 0)
+                ) {
+                    needToChangeDirection = true;
+                    break;
+                }
+            }
+            
+            // Update enemies
+            for (let i = 0; i < enemies.length; i++) {
+                const enemy = enemies[i];
+                
+                // Move enemy horizontally
+                enemy.x += enemy.speed * enemy.direction;
+                
+                // Move enemy down and change direction if needed
+                if (needToChangeDirection) {
+                    enemy.y += 20;
+                    enemy.direction *= -1;
+                }
+                
+                // Draw enemy
+                ctx.fillStyle = enemy.color;
+                ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+                
+                // Random chance for enemy to shoot
+                if (Math.random() < enemy.shootChance) {
+                    const bulletSpeed = 3 + level * 0.5;
+                    
+                    // Enemy bullet
+                    const bullet = {
+                        x: enemy.x + enemy.width / 2 - 2,
+                        y: enemy.y + enemy.height,
+                        width: 4,
+                        height: 10,
+                        speed: bulletSpeed,
+                        color: enemy.color,
+                        isEnemyBullet: true
+                    };
+                    
+                    player.bullets.push(bullet);
+                }
+                
+                // Check for collision with player
+                if (
+                    enemy.x < player.x + player.width &&
+                    enemy.x + enemy.width > player.x &&
+                    enemy.y < player.y + player.height &&
+                    enemy.y + enemy.height > player.y
+                ) {
+                    // Enemy hit player
+                    playerHit();
+                    enemies.splice(i, 1);
+                    i--;
+                    continue;
+                }
+                
+                // Check if enemy reached the bottom
+                if (enemy.y + enemy.height > canvas.height) {
+                    // Game over if enemy reaches bottom
+                    gameOver();
+                    return;
+                }
+            }
+            
+            // Update enemy bullets
+            for (let i = 0; i < player.bullets.length; i++) {
+                const bullet = player.bullets[i];
+                
+                if (bullet.isEnemyBullet) {
+                    // Move enemy bullet down
+                    bullet.y += bullet.speed;
+                    
+                    // Check for collision with player
+                    if (
+                        bullet.x < player.x + player.width &&
+                        bullet.x + bullet.width > player.x &&
+                        bullet.y < player.y + player.height &&
+                        bullet.y + bullet.height > player.y
+                    ) {
+                        // Bullet hit player
+                        playerHit();
+                        player.bullets.splice(i, 1);
+                        i--;
+                        continue;
+                    }
+                    
+                    // Remove bullet if it goes off screen
+                    if (bullet.y > canvas.height) {
+                        player.bullets.splice(i, 1);
+                        i--;
+                        continue;
+                    }
+                }
+            }
+        }
+        
+        function updatePowerUps() {
+            for (let i = 0; i < powerUps.length; i++) {
+                const powerUp = powerUps[i];
+                
+                // Move power-up down
+                powerUp.y += powerUp.speed;
+                
+                // Remove power-up if it goes off screen
+                if (powerUp.y > canvas.height) {
+                    powerUps.splice(i, 1);
+                    i--;
+                    continue;
+                }
+                
+                // Draw power-up
+                ctx.fillStyle = powerUp.color;
+                ctx.beginPath();
+                ctx.arc(powerUp.x + powerUp.width / 2, powerUp.y + powerUp.height / 2, powerUp.width / 2, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Add glow effect
+                ctx.strokeStyle = powerUp.color;
+                ctx.lineWidth = 2;
+                ctx.globalAlpha = 0.5;
+                ctx.beginPath();
+                ctx.arc(powerUp.x + powerUp.width / 2, powerUp.y + powerUp.height / 2, powerUp.width / 2 + 5, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.globalAlpha = 1;
+                
+                // Check for collision with player
+                if (
+                    powerUp.x < player.x + player.width &&
+                    powerUp.x + powerUp.width > player.x &&
+                    powerUp.y < player.y + player.height &&
+                    powerUp.y + powerUp.height > player.y
+                ) {
+                    // Player collected power-up
+                    powerUp.effect();
+                    
+                    // Remove power-up
+                    powerUps.splice(i, 1);
+                    i--;
+                }
+            }
+        }
+        
+        function playerHit() {
+            // Reduce player lives if power level is 1, otherwise reduce power level
+            if (player.powerLevel > 1) {
+                player.powerLevel--;
+            } else {
+                lives--;
+                document.getElementById('lives').textContent = lives;
+                
+                if (lives <= 0) {
+                    gameOver();
+                }
+            }
+        }
+        
+        function gameOver() {
+            gameRunning = false;
+            document.getElementById('final-score').textContent = score;
+            document.getElementById('game-over').style.display = 'flex';
+        }
+        
+        // Initialize the game
+        window.onload = init;
+    </script>
+</body>
+</html> 
